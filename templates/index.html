@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Page Extractor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+
+        .upload-area {
+            border: 3px dashed #ccc;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 30px;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #f0f2ff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .file-info {
+            display: none;
+            background: #e8f5e8;
+            border: 1px solid #c3e6c3;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .page-selection {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .page-selection.show {
+            display: block;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .input-group label {
+            font-weight: 500;
+            color: #333;
+            min-width: 80px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .message.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .range-helper {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDF Page Extractor</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">Drag and drop your PDF file here</div>
+            <div class="upload-text">or</div>
+            <button class="btn" onclick="document.getElementById('fileInput').click()">Browse Files</button>
+            <input type="file" id="fileInput" class="file-input" accept=".pdf">
+        </div>
+
+        <div id="messages"></div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Processing your file...</div>
+        </div>
+
+        <div class="file-info" id="fileInfo">
+            <h3>File Information</h3>
+            <p><strong>File:</strong> <span id="fileName"></span></p>
+            <p><strong>Total Pages:</strong> <span id="totalPages"></span></p>
+            <p><strong>Note:</strong> <small>Files remain available for 10 minutes after extraction (allowing multiple extractions), then auto-cleanup</small></p>
+        </div>
+
+        <div class="page-selection" id="pageSelection">
+            <h3>Select Page Range</h3>
+            <div class="input-group">
+                <label for="startPage">From:</label>
+                <input type="number" id="startPage" min="1" placeholder="Start page">
+                <label for="endPage">To:</label>
+                <input type="number" id="endPage" min="1" placeholder="End page">
+            </div>
+            <div class="range-helper">
+                <strong>Example:</strong> Enter 1 to 3 to extract pages 1, 2, and 3
+            </div>
+            <div class="actions">
+                <button class="btn" id="extractBtn" onclick="extractPages()">Extract Pages</button>
+                <button class="btn" id="resetBtn" onclick="resetForm()">Upload New File</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFile = null;
+        let currentFileName = null;
+        let totalPages = 0;
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const messages = document.getElementById('messages');
+        const loading = document.getElementById('loading');
+        const fileInfo = document.getElementById('fileInfo');
+        const pageSelection = document.getElementById('pageSelection');
+        const fileName = document.getElementById('fileName');
+        const totalPagesSpan = document.getElementById('totalPages');
+        const startPageInput = document.getElementById('startPage');
+        const endPageInput = document.getElementById('endPage');
+        const extractBtn = document.getElementById('extractBtn');
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // Handle file selection
+        function handleFile(file) {
+            if (file.type !== 'application/pdf') {
+                showMessage('Please select a PDF file.', 'error');
+                return;
+            }
+
+            currentFile = file;
+            uploadFile(file);
+        }
+
+        // Upload file to server
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showLoading(true);
+            clearMessages();
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                showLoading(false);
+                if (data.success) {
+                    currentFileName = data.filename;
+                    totalPages = data.page_count;
+                    showFileInfo(data.original_filename, data.page_count);
+                    showMessage(data.message, 'success');
+                } else {
+                    showMessage(data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                showMessage('Upload failed: ' + error.message, 'error');
+            });
+        }
+
+        // Show file information
+        function showFileInfo(filename, pageCount) {
+            fileName.textContent = filename;
+            totalPagesSpan.textContent = pageCount;
+            fileInfo.classList.add('show');
+            pageSelection.classList.add('show');
+            
+            // Set input constraints
+            startPageInput.max = pageCount;
+            endPageInput.max = pageCount;
+            startPageInput.value = 1;
+            endPageInput.value = pageCount;
+        }
+
+        // Extract pages
+        function extractPages() {
+            const startPage = parseInt(startPageInput.value);
+            const endPage = parseInt(endPageInput.value);
+
+            if (!startPage || !endPage) {
+                showMessage('Please enter both start and end page numbers.', 'error');
+                return;
+            }
+
+            if (startPage < 1 || endPage < 1 || startPage > endPage) {
+                showMessage('Please enter valid page numbers.', 'error');
+                return;
+            }
+
+            if (startPage > totalPages || endPage > totalPages) {
+                showMessage(`Page numbers cannot exceed total pages (${totalPages}).`, 'error');
+                return;
+            }
+
+            showLoading(true);
+            clearMessages();
+            extractBtn.disabled = true;
+
+            fetch('/extract', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    filename: currentFileName,
+                    start_page: startPage,
+                    end_page: endPage
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                } else {
+                    return response.json().then(data => {
+                        throw new Error(data.error);
+                    });
+                }
+            })
+            .then(blob => {
+                showLoading(false);
+                extractBtn.disabled = false;
+                
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `extracted_pages_${startPage}-${endPage}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                showMessage(`Pages ${startPage}-${endPage} extracted successfully!`, 'success');
+            })
+            .catch(error => {
+                showLoading(false);
+                extractBtn.disabled = false;
+                showMessage('Extraction failed: ' + error.message, 'error');
+            });
+        }
+
+        // Reset form
+        function resetForm() {
+            currentFile = null;
+            currentFileName = null;
+            totalPages = 0;
+            
+            fileInfo.classList.remove('show');
+            pageSelection.classList.remove('show');
+            fileInput.value = '';
+            startPageInput.value = '';
+            endPageInput.value = '';
+            extractBtn.disabled = false;
+            
+            clearMessages();
+        }
+
+        // Show loading
+        function showLoading(show) {
+            if (show) {
+                loading.classList.add('show');
+            } else {
+                loading.classList.remove('show');
+            }
+        }
+
+        // Show message
+        function showMessage(text, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = text;
+            messages.appendChild(messageDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+
+        // Clear messages
+        function clearMessages() {
+            messages.innerHTML = '';
+        }
+
+        // Auto-update end page when start page changes
+        startPageInput.addEventListener('input', (e) => {
+            const startPage = parseInt(e.target.value);
+            if (startPage && !endPageInput.value) {
+                endPageInput.value = Math.min(startPage, totalPages);
+            }
+        });
+    </script>
+</body>
+</html> 
